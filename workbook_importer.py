@@ -113,8 +113,40 @@ def import_workbook(path, connection):
         elif "سیلابس" in name:
             imported["syllabus_rows"]=sum(1 for r in rows if any(r))
         elif "کارنامه" in name or "آزمون" in name:
-            imported["mock_rows"]=sum(1 for r in rows if any(r))
-        # Save all sheet data as JSON notes so no workbook content is discarded.
+            nonblank=[r for r in rows if any(r)]
+            imported["mock_rows"]=max(0,len(nonblank)-1)
+            header_index=next((i for i,r in enumerate(rows[:5]) if any(
+                any(k in x.lower() for k in ["listening","reading","speaking","writing","overall","شنیدار","خواندن","گفتار","نوشتار","تاریخ"])
+                for x in r)),None)
+            if header_index is not None:
+                headers=[x.lower() for x in rows[header_index]]
+                def col(keys):
+                    return next((i for i,h in enumerate(headers) if any(k in h for k in keys)),None)
+                date_col=col(["تاریخ","date"])
+                name_col=col(["آزمون","test","نام"])
+                score_cols=[
+                    col(["listening","شنیدار"]),
+                    col(["reading","خواندن"]),
+                    col(["speaking","گفتار"]),
+                    col(["writing","نوشتار"]),
+                    col(["overall","total","کل","مجموع"])
+                ]
+                analysis_col=col(["تحلیل","اشتباه","error","analysis"])
+                for row in rows[header_index+1:]:
+                    if not any(row): continue
+                    d=parse_date(row[date_col]) if date_col is not None and date_col<len(row) else None
+                    vals=[]
+                    for idx in score_cols:
+                        raw=norm(row[idx]) if idx is not None and idx<len(row) else ""
+                        try: vals.append(float(raw.replace(",", ".")) if raw else 0.0)
+                        except ValueError: vals.append(0.0)
+                    test_name= row[name_col] if name_col is not None and name_col<len(row) else "Testino"
+                    if d and any(vals):
+                        connection.execute("""INSERT INTO mocks(test_date,test_name,listening,reading,speaking,writing,overall,analysis)
+                            VALUES(?,?,?,?,?,?,?,?)""",
+                            (d,test_name,*vals,
+                             row[analysis_col] if analysis_col is not None and analysis_col<len(row) else ""))
+        # Save all sheet data so no workbook content is discarded.
         connection.execute("INSERT INTO notes(created_at,title,body) VALUES(?,?,?)",
             (datetime.now().strftime("%Y-%m-%d %H:%M"),"Workbook: "+name,
              "\n".join(" | ".join(r) for r in rows)[:30000]))
