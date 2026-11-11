@@ -159,7 +159,9 @@ class MainWindow(QMainWindow):
         save=QPushButton("ذخیره یادداشت"); save.clicked.connect(self.save_note)
         l.addWidget(self.note_title); l.addWidget(self.note_body); l.addWidget(save)
         self.notes_list=QTableWidget(0,2); self.notes_list.setHorizontalHeaderLabels(["زمان","عنوان"])
-        self.notes_list.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch); l.addWidget(self.notes_list)
+        self.notes_list.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.notes_list.cellDoubleClicked.connect(self.open_note)
+        l.addWidget(self.notes_list)
         self.tabs.addTab(w,"یادداشت‌ها")
 
     def build_settings(self):
@@ -204,7 +206,8 @@ class MainWindow(QMainWindow):
         notes=con.execute("SELECT * FROM notes ORDER BY id DESC").fetchall()
         self.notes_list.setRowCount(len(notes))
         for r,x in enumerate(notes):
-            self.notes_list.setItem(r,0,QTableWidgetItem(x["created_at"])); self.notes_list.setItem(r,1,QTableWidgetItem(x["title"]))
+            time_item=QTableWidgetItem(x["created_at"]); time_item.setData(Qt.UserRole,x["id"])
+            self.notes_list.setItem(r,0,time_item); self.notes_list.setItem(r,1,QTableWidgetItem(x["title"]))
         con.close()
 
     def selected_task_id(self):
@@ -254,6 +257,16 @@ class MainWindow(QMainWindow):
                 (dt.date().toString("yyyy-MM-dd"),name.text(),*[s.value() for s in scores],analysis.toPlainText()))
             con.commit(); con.close(); self.refresh_all()
 
+    def open_note(self,row,column):
+        item=self.notes_list.item(row,0)
+        if not item:return
+        note_id=item.data(Qt.UserRole)
+        con=db(); note=con.execute("SELECT title,body FROM notes WHERE id=?",(note_id,)).fetchone(); con.close()
+        if note:
+            dlg=QDialog(self); dlg.setWindowTitle(note["title"]); dlg.resize(850,620)
+            layout=QVBoxLayout(dlg); view=QTextEdit(); view.setReadOnly(True); view.setPlainText(note["body"])
+            layout.addWidget(view); close=QPushButton("بستن"); close.clicked.connect(dlg.accept); layout.addWidget(close); dlg.exec()
+
     def save_note(self):
         if not self.note_title.text().strip() and not self.note_body.toPlainText().strip():return
         con=db(); con.execute("INSERT INTO notes(created_at,title,body) VALUES(?,?,?)",
@@ -261,46 +274,21 @@ class MainWindow(QMainWindow):
         con.commit(); con.close(); self.note_title.clear(); self.note_body.clear(); self.refresh_all()
 
     def import_excel(self):
-        path,_=QFileDialog.getOpenFileName(self,"انتخاب فایل برنامه تافل","","Excel (*.xlsx *.xls)")
+        path,_=QFileDialog.getOpenFileName(self,"انتخاب فایل برنامه تافل","","Excel (*.xlsx)")
         if not path:return
         try:
-            import pandas as pd
-            book=pd.ExcelFile(path)
-            con=db(); imported=0
-            for sheet in book.sheet_names:
-                df=pd.read_excel(path,sheet_name=sheet,header=None).fillna("")
-                title=str(sheet).lower()
-                if "روزانه" in title or "daily" in title:
-                    for _,row in df.iterrows():
-                        vals=[cell_text(x) for x in row.tolist()]
-                        joined=" ".join(vals)
-                        if not any(ch.isdigit() for ch in joined):continue
-                        # Flexible column mapping: preserve source cells in four study blocks.
-                        day=next((x for x in vals if len(x)>=8 and ("-" in x or "/" in x)), "")
-                        if not day: continue
-                        try:
-                            d=pd.to_datetime(day,dayfirst=True).date().isoformat()
-                        except Exception: continue
-                        if con.execute("SELECT 1 FROM tasks WHERE study_date=?",(d,)).fetchone():continue
-                        numeric=[]
-                        for x in vals:
-                            try:
-                                n=float(x.replace(",","."))
-                                if 0<n<=24:numeric.append(n)
-                            except Exception:pass
-                        hrs=numeric[0] if numeric else 0
-                        blocks=[x for x in vals if x and x!=day and not x.isdigit()]
-                        blocks=(blocks+["","","",""])[:4]
-                        con.execute("INSERT INTO tasks(study_date,weekday,hours,block1,block2,block3,block4) VALUES(?,?,?,?,?,?,?)",
-                            (d,"",hrs,*blocks)); imported+=1
-                elif "آزمون" in title or "کارنامه" in title or "mock" in title:
-                    # Source sheet is retained as a note if the column structure is unfamiliar.
-                    con.execute("INSERT INTO notes(created_at,title,body) VALUES(?,?,?)",
-                        (datetime.now().strftime("%Y-%m-%d %H:%M"),"ورود شیت "+str(sheet),df.to_string(index=False,header=False)[:12000]))
-            con.commit(); con.close()
-            self.import_status.setText(f"ورود فایل انجام شد؛ {imported} ردیف برنامه روزانه شناسایی شد. شیت‌های دیگر برای جلوگیری از حدس نادرست در یادداشت‌ها نگهداری شدند.")
+            from workbook_importer import import_workbook
+            con=db()
+            result=import_workbook(path,con)
+            con.close()
+            summary=(f"روزهای برنامه روزانه: {result['daily']}\\n"
+                     f"ردیف‌های روتین هفتگی: {result['routine_rows']}\\n"
+                     f"ردیف‌های سیلابس: {result['syllabus_rows']}\\n"
+                     f"ردیف‌های کارنامه آزمون: {result['mock_rows']}\\n\\n"
+                     "محتوای کامل هر چهار شیت در بخش یادداشت‌ها ذخیره شده است.")
+            self.import_status.setText(summary)
             self.refresh_all()
-            QMessageBox.information(self,"پایان ورود",self.import_status.text())
+            QMessageBox.information(self,"ورود برنامه تافل",summary)
         except Exception as e:
             QMessageBox.critical(self,"خطا در ورود فایل",str(e))
 
