@@ -100,10 +100,13 @@ def import_workbook(path, connection):
         imported["sheets"].append(name)
         if "روزانه" in name:
             for item in find_daily_rows(rows):
-                connection.execute("""INSERT INTO tasks(study_date,weekday,hours,block1,block2,block3,block4,notes)
-                    VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(study_date) DO UPDATE SET
-                    weekday=excluded.weekday,hours=excluded.hours,block1=excluded.block1,
-                    block2=excluded.block2,block3=excluded.block3,block4=excluded.block4""",item)
+                existing=connection.execute("SELECT id FROM tasks WHERE study_date=?",(item[0],)).fetchone()
+                if existing:
+                    connection.execute("""UPDATE tasks SET weekday=?,hours=?,block1=?,block2=?,block3=?,block4=? WHERE id=?""",
+                        (*item[1:7],existing[0]))
+                else:
+                    connection.execute("""INSERT INTO tasks(study_date,weekday,hours,block1,block2,block3,block4,notes)
+                        VALUES(?,?,?,?,?,?,?,?)""",item)
                 imported["daily"]+=1
         elif "روتین" in name:
             imported["routine_rows"]=sum(1 for r in rows if any(r))
