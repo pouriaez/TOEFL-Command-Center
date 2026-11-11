@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sqlite3
 import tempfile
+from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
 
@@ -13,6 +14,7 @@ APP_NAME = "TOEFL Command Center"
 DATA_DIR = Path(os.getenv("TOEFL_DATA_DIR", "data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = Path(os.getenv("TOEFL_DB_PATH", str(DATA_DIR / "toefl.db")))
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS tasks (
@@ -31,11 +33,16 @@ CREATE TABLE IF NOT EXISTS notes (
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
 """
 
+@contextmanager
 def connect():
     con = sqlite3.connect(DB_PATH, timeout=20)
     con.row_factory = sqlite3.Row
-    con.executescript(SCHEMA)
-    return con
+    try:
+        con.executescript(SCHEMA)
+        yield con
+        con.commit()
+    finally:
+        con.close()
 
 def query(sql, params=()):
     with connect() as con:
