@@ -1,21 +1,27 @@
 # TOEFL Command Center
 
-A Persian RTL desktop study planner for the 2026 TOEFL preparation workflow.
+برنامه دسکتاپ مدیریت مطالعه تافل بر اساس فایل برنامه‌ریزی فارسی شما.
 
-## Planned stack
-- Python 3.11+
-- PySide6 desktop UI
-- SQLite local persistence
-- pandas/openpyxl for workbook import and Excel export
-- matplotlib for progress charts
-- ReportLab for PDF export
+## قابلیت‌ها
+- داشبورد پیشرفت روزانه و ساعت‌های هدف
+- برنامه روزانه با امکان ثبت، ویرایش، حذف و تیک انجام
+- ورود فایل Excel فارسی و تبدیل تاریخ‌های شمسی به میلادی برای مرتب‌سازی
+- ورود نمرات آزمون‌های آزمایشی در صورت وجود ستون‌های استاندارد نمره
+- نگهداری کامل شیت‌های روتین هفتگی و سیلابس در بخش یادداشت‌ها (برای مشاهده، روی ردیف دوبار کلیک کنید)
+- ثبت یادداشت و تحلیل خطا
+- پایگاه داده SQLite محلی، پوسته روشن/تیره و پشتیبان‌گیری
 
-## Run
-```bash
-python -m venv .venv
-# Windows: .venv\\Scripts\\activate
-pip install -r requirements.txt
-python main.py
-```
+## اجرا در Windows
+1. Python 3.11 یا جدیدتر را نصب کنید.
+2. فایل‌های مخزن را دانلود کنید یا با Git کلون کنید.
+3. روی `run_windows.bat` دوبار کلیک کنید.
+4. در برنامه به «تنظیمات» بروید و فایل `TOEFL_Study_Plan_19Aban_to_12Dey.xlsx` را انتخاب کنید.
 
-The workbook importer maps the daily plan, weekly routine, weekly syllabus, and mock-test score sheets. Import your study-plan workbook from **Settings → Import workbook**.
+## ساخت EXE
+پس از نصب وابستگی‌ها، `build_exe.bat` را اجرا کنید. خروجی در `dist/TOEFL-Command-Center.exe` قرار می‌گیرد.
+
+## وابستگی‌ها
+PySide6, openpyxl, pandas, matplotlib, reportlab
+
+## ذخیره‌سازی
+پایگاه داده در مسیر `%USERPROFILE%\\.toefl_command_center\\toefl.db` نگهداری می‌شود. فایل اکسل اصلی تغییر نمی‌کند.
