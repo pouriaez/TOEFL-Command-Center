@@ -1,38 +1,39 @@
-# Gemini Argon handoff — TOEFL Command Center Web
+# Gemini handoff — TOEFL Command Center Web
 
-Continue development from this branch: `web/streamlit-version`.
+The default branch `main` is now **web-only**. The Windows/PySide6 desktop application and its launch/build scripts have been removed.
 
-## Important runtime decision
-This repository is a **Python Streamlit web app**, not a Node/React app. The browser UI is served by Streamlit. Do not add a fake `package.json`, do not run `npm install`, and do not try to render the PySide6 desktop window in a browser preview.
+## Runtime
+This is a **Python + Streamlit** project, not a Node/React project.
 
-## Start command
+Install:
 ```bash
 python -m pip install -r requirements.txt
+```
+
+Run:
+```bash
 python -m streamlit run web_app.py --server.address 0.0.0.0 --server.port 8501
 ```
-Open the forwarded port 8501 in the browser if the environment supports Python processes and port forwarding. If this workspace only supports Node preview, explain that limitation and use a Python/Streamlit runtime or deploy to Streamlit Community Cloud.
 
-## Files
-- `web_app.py`: browser UI and SQLite operations
-- `workbook_importer.py`: existing Persian Excel importer
-- `requirements.txt`: web dependencies
-- `requirements-desktop.txt`: desktop dependencies
-- `main.py`: preserved Windows desktop application
-- `README.md`: run and deployment instructions
+The environment must have Python 3.11+ and support a long-running Streamlit process with port 8501 forwarded to the browser. Do not run `npm install` or invent a `package.json` for this Python application. If the selected Gemini workspace only supports Node.js projects, state that limitation; use a Python runtime or port the application to the workspace's supported web stack instead.
 
-## Current web pages
-Dashboard, daily planner (CRUD + completion checkboxes), mock tests, notes/error analysis, Excel import, and SQLite backup download.
+## Main files
+- `web_app.py`: Streamlit browser interface and SQLite CRUD.
+- `workbook_importer.py`: existing Persian Excel workbook importer.
+- `requirements.txt`: Python web dependencies.
+- `README.md`: setup and deployment instructions.
 
-## Required next steps
-1. Install requirements and run a Python syntax check on `web_app.py` and `workbook_importer.py`.
-2. Launch Streamlit and test every page in a browser.
-3. Test importing the actual Persian TOEFL workbook; verify the daily rows, Jalali-to-Gregorian dates, and mock scores against the source workbook.
-4. Fix any import mapping issues without discarding source-sheet content.
-5. Test add/edit/delete/check operations and confirm SQLite persistence across reruns.
-6. Improve the responsive RTL design while keeping all labels legible.
-7. Do not claim the app is fully tested until the above checks pass.
+## Existing pages
+Dashboard, daily planner (add/edit/delete/mark complete), mock test records, notes/error analysis, Excel upload/import, and SQLite backup download.
 
-## Known limitations to address before public deployment
-- No login / per-user accounts yet.
-- SQLite file persistence depends on the host; configure persistent storage or move to managed PostgreSQL for a multi-user deployment.
-- Validate uploaded workbook size and report import summaries clearly.
+## First tasks
+1. Confirm Python version and install requirements.
+2. Run `python -m py_compile web_app.py workbook_importer.py`.
+3. Launch Streamlit on port 8501 and inspect the actual browser UI.
+4. Test each page and all CRUD operations.
+5. Import the user's real Excel workbook and compare daily rows, Persian/Jalali date conversion, weekly routine, syllabus and mock-test data with the source workbook.
+6. Fix mapping and UI issues; preserve source data rather than silently dropping unrecognized cells.
+7. Report exact test results and remaining limitations. Do not claim browser or workbook tests passed unless they were actually run.
+
+## Before public deployment
+There is currently no login or per-user access control. SQLite persistence depends on the host's disk. Configure persistent storage or a managed database before production/multi-user use.
